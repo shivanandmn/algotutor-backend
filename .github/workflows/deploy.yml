@@ -56,15 +56,15 @@ jobs:
 
       - name: Build and Push Container
         run: |-
-          docker build -t "${{ secrets.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.SERVICE }}:${{ github.sha }}" ./
-          docker push "${{ secrets.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.SERVICE }}:${{ github.sha }}"
+          docker build -t "${{ secrets.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/${{ secrets.SERVICE }}:${{ github.sha }}" ./
+          docker push "${{ secrets.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/${{ secrets.SERVICE }}:${{ github.sha }}"
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
           service: ${{ secrets.SERVICE }}
           region: ${{ secrets.REGION }}
-          image: ${{ secrets.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.SERVICE }}:${{ github.sha }}
+          image: ${{ secrets.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/${{ secrets.SERVICE }}:${{ github.sha }}
           flags: '--allow-unauthenticated --cpu=1 --memory=512Mi --min-instances=1 --max-instances=10 --port=8000 --timeout=300s'
 
       - name: Show Output
