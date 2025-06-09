@@ -1,0 +1,169 @@
+{
+  "info": {
+    "name": "AlgoTutor API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Questions",
+      "item": [
+        {
+          "name": "List Questions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/questions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "questions"]
+            }
+          }
+        },
+        {
+          "name": "Create Question",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/v1/questions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "questions"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": {
+                "title": "Two Sum",
+                "title_slug": "two-sum",
+                "level": "easy",
+                "topics": ["arrays", "hash-table"],
+                "companies": ["amazon", "google"],
+                "content": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+                "code_snippets": [
+                  {
+                    "language": "python",
+                    "code": "def two_sum(nums, target):\n    # Your code here\n    pass",
+                    "template": true,
+                    "is_starter_code": true
+                  }
+                ],
+                "test_cases": [
+                  {
+                    "input": "[2,7,11,15]\n9",
+                    "expected_output": "[0,1]",
+                    "timeout_ms": 2000,
+                    "memory_limit_mb": 512,
+                    "is_hidden": false
+                  }
+                ],
+                "time_complexity": "O(n)",
+                "space_complexity": "O(n)",
+                "hints": ["Try using a hash map"],
+                "solution_explanation": "Use a hash map to store complements"
+              }
+            }
+          }
+        },
+        {
+          "name": "Get Question by Slug",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/questions/{{slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "questions", "{{slug}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Code Submissions",
+      "item": [
+        {
+          "name": "Submit Code",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/v1/code/submit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "code", "submit"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": {
+                "language": "python",
+                "code": "def two_sum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            return [seen[complement], i]\n        seen[num] = i\n    return []",
+                "question_id": "{{question_id}}"
+              }
+            }
+          }
+        },
+        {
+          "name": "Get Submission Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/code/status/{{submission_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "code", "status", "{{submission_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Submission History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/code/history",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "code", "history"]
+            }
+          }
+        },
+        {
+          "name": "Get Question Submissions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/code/submissions/{{question_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "code", "submissions", "{{question_id}}"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "question_id",
+      "value": "your_question_id_here",
+      "type": "string"
+    },
+    {
+      "key": "submission_id",
+      "value": "your_submission_id_here",
+      "type": "string"
+    },
+    {
+      "key": "slug",
+      "value": "two-sum",
+      "type": "string"
+    }
+  ]
+}

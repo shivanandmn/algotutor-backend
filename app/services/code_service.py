@@ -11,7 +11,7 @@ from app.models.code_submission import CodeSubmission, TestResult
 
 class CodeExecutionService:
     def __init__(self):
-        self.client = docker.from_env()
+        self.client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
         self.language_configs = {
             "python": {
                 "image": "python:3.9-slim",

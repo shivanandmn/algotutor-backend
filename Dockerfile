@@ -3,9 +3,12 @@ FROM python:3.11-slim
 
 # Install system dependencies including Docker CLI
 RUN apt-get update && \
-    apt-get install -y docker.io curl && \
+    apt-get install -y docker.io curl ca-certificates && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    # Setup Docker permissions
+    groupadd -r docker && \
+    usermod -aG docker root
 
 # Set working directory
 WORKDIR /app
@@ -23,8 +26,9 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PORT=8000
 
-# Create directory for Docker socket
-RUN mkdir -p /var/run
+# Setup Docker socket directory
+RUN mkdir -p /var/run && \
+    chmod 2375 /var/run
 
 # Expose the port
 EXPOSE 8000
