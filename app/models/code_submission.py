@@ -5,15 +5,7 @@ from pydantic import Field
 
 from app.models.user import User
 from app.models.question import Question
-
-class TestResult(Document):
-    test_case_id: str
-    passed: bool
-    execution_time: float  # in milliseconds
-    memory_used: float    # in MB
-    output: Optional[str] = None
-    error: Optional[str] = None
-    is_hidden: bool = False
+from app.models.test_result import TestResult
 
 class CodeSubmission(Document):
     user: Link[User]

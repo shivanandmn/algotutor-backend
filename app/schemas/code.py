@@ -1,14 +1,10 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+from app.models.test_result import BaseTestResult
 
-class TestResult(BaseModel):
-    test_case_id: str
-    passed: bool
-    execution_time: float
-    memory_used: float
-    output: Optional[str] = None
-    error: Optional[str] = None
+class TestResult(BaseTestResult):
+    pass
 
 class CodeSubmission(BaseModel):
     language: str = Field(..., pattern="^(python|java|cpp|javascript)$")

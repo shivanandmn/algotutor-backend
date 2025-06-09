@@ -2,7 +2,7 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, Type, Callable
 import logging
 
 logger = logging.getLogger(__name__)

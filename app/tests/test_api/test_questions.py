@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 from app.models.question import Question
+from app.schemas.question import QuestionCreate
 
 pytestmark = pytest.mark.asyncio
 
@@ -10,9 +11,10 @@ async def test_create_question(client: AsyncClient, admin_auth_headers):
         headers=admin_auth_headers,
         json={
             "title": "New Question",
-            "description": "Write a function that multiplies two numbers",
-            "difficulty": "medium",
-            "tags": ["math", "multiplication"],
+            "content": "Write a function that multiplies two numbers",
+            "level": "medium",
+            "topics": ["math", "multiplication"],
+            "code_snippets": [],
             "test_cases": [
                 {
                     "input": "2 3",
@@ -34,8 +36,10 @@ async def test_create_question_as_user(client: AsyncClient, auth_headers):
         headers=auth_headers,
         json={
             "title": "New Question",
-            "description": "Test",
-            "difficulty": "easy",
+            "content": "Test",
+            "level": "easy",
+            "topics": ["test"],
+            "code_snippets": [],
             "test_cases": []
         }
     )
@@ -49,18 +53,18 @@ async def test_list_questions(client: AsyncClient):
 
 async def test_list_questions_with_filters(client: AsyncClient, test_question):
     # Test difficulty filter
-    response = await client.get("/api/v1/questions/?difficulty=easy")
+    response = await client.get("/api/v1/questions/?level=easy")
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0
-    assert all(q["difficulty"] == "easy" for q in data)
+    assert all(q["level"] == "easy" for q in data)
 
     # Test tags filter
-    response = await client.get("/api/v1/questions/?tags=math")
+    response = await client.get("/api/v1/questions/?topics=math")
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0
-    assert all("math" in q["tags"] for q in data)
+    assert all("math" in q["topics"] for q in data)
 
 async def test_get_question(client: AsyncClient, test_question):
     question = await Question.find_one({"title": test_question["title"]})
@@ -77,8 +81,10 @@ async def test_update_question(client: AsyncClient, test_question, admin_auth_he
         headers=admin_auth_headers,
         json={
             "title": "Updated Question",
-            "description": test_question["description"],
-            "difficulty": test_question["difficulty"],
+            "content": test_question.content,
+            "level": test_question.level,
+            "topics": test_question.topics,
+            "code_snippets": test_question.code_snippets,
             "test_cases": test_question["test_cases"]
         }
     )

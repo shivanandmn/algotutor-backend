@@ -4,13 +4,13 @@ from beanie import PydanticObjectId
 
 from app.models.user import User
 from app.models.question import Question
-from app.schemas.question import QuestionCreate, QuestionUpdate, Question as QuestionSchema
+from app.schemas.question import QuestionCreate, QuestionUpdate
 from app.services.auth_service import AuthService
 
 router = APIRouter()
 auth_service = AuthService()
 
-@router.post("/", response_model=QuestionSchema)
+@router.post("/", response_model=Question)
 async def create_question(
     question: QuestionCreate,
     current_user: User = Depends(auth_service.get_current_user)
@@ -37,7 +37,7 @@ async def create_question(
     await db_question.insert()
     return db_question
 
-@router.get("/", response_model=List[QuestionSchema])
+@router.get("/", response_model=List[Question])
 async def list_questions(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
@@ -58,7 +58,7 @@ async def list_questions(
     questions = await Question.find(query).skip(skip).limit(limit).to_list()
     return questions
 
-@router.get("/{slug}", response_model=QuestionSchema)
+@router.get("/{slug}", response_model=Question)
 async def get_question(slug: str = Path(..., title="Question slug")):
     """Get a question by slug"""
     question = await Question.find_one({"title-slug": slug})
@@ -98,7 +98,7 @@ async def dislike_question(
     
     return {"message": "Question disliked successfully"}
 
-@router.get("/{question_id}", response_model=QuestionSchema)
+@router.get("/{question_id}", response_model=Question)
 async def get_question(question_id: str):
     """Get a specific question by ID"""
     try:
@@ -109,7 +109,7 @@ async def get_question(question_id: str):
     except:
         raise HTTPException(status_code=404, detail="Question not found")
 
-@router.put("/{question_id}", response_model=QuestionSchema)
+@router.patch("/{question_id}", response_model=Question)
 async def update_question(
     question_id: str,
     question_update: QuestionUpdate,
