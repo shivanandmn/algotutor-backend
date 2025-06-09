@@ -6,8 +6,8 @@ RUN apt-get update && \
     apt-get install -y docker.io curl ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    # Setup Docker permissions
-    groupadd -r docker && \
+    # Setup Docker permissions (handle case where group might already exist)
+    getent group docker || groupadd -r docker && \
     usermod -aG docker root
 
 # Set working directory
