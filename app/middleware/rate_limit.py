@@ -6,6 +6,7 @@ import time
 class RateLimiter:
     def __init__(
         self,
+        app = None,
         requests_per_minute: int = 60,
         burst_limit: int = 100
     ):
