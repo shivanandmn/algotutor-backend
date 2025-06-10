@@ -1,6 +1,6 @@
 import os
-import docker
-import tempfile
+import time
+import requests
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from beanie import PydanticObjectId
@@ -11,34 +11,27 @@ from app.models.code_submission import CodeSubmission, TestResult
 
 class CodeExecutionService:
     def __init__(self):
-        self.client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
+        self.judge0_api_url = "https://judge0-ce.p.rapidapi.com"
+        self.headers = {
+            "x-rapidapi-key": settings.JUDGE0_API_KEY,
+            "x-rapidapi-host": "judge0-ce.p.rapidapi.com",
+            "content-type": "application/json"
+        }
         self.language_configs = {
             "python": {
-                "image": "python:3.9-slim",
+                "judge0_id": 71,  # Python (3.8.1)
                 "extension": ".py",
-                "command": "python",
-                "memory_limit": "256m",
                 "timeout": 10,  # seconds
-                "compile_needed": False
             },
             "java": {
-                "image": "openjdk:11-slim",
+                "judge0_id": 62,  # Java (OpenJDK 13.0.1)
                 "extension": ".java",
-                "command": "java",
-                "compile_command": "javac",
-                "memory_limit": "512m",
                 "timeout": 15,
-                "compile_needed": True
             },
             "cpp": {
-                "image": "gcc:latest",
+                "judge0_id": 54,  # C++ (GCC 9.2.0)
                 "extension": ".cpp",
-                "command": "./main",
-                "compile_command": "g++",
-                "compile_args": ["-o", "main"],
-                "memory_limit": "256m",
                 "timeout": 10,
-                "compile_needed": True
             },
             "javascript": {
                 "image": "node:16-slim",
@@ -51,55 +44,65 @@ class CodeExecutionService:
         }
 
     async def execute_code(self, code: str, lang: str, input_data: str) -> Dict[str, Any]:
-        """Execute code and return result"""
+        """Execute code using Judge0 CE API and return result"""
         try:
             config = self.language_configs[lang]
-            file_name = f"main{config['extension']}"
 
-            # Create a temporary directory for code execution
-            with tempfile.TemporaryDirectory() as temp_dir:
-                # Write code and input files safely
-                code_path = os.path.join(temp_dir, file_name)
-                input_path = os.path.join(temp_dir, 'input.txt')
-                
-                with open(code_path, 'w') as f:
-                    f.write(code)
-                with open(input_path, 'w') as f:
-                    f.write(input_data)
+            # Prepare submission data
+            submission_data = {
+                "source_code": code,
+                "language_id": config['judge0_id'],
+                "stdin": input_data,
+                "cpu_time_limit": config['timeout'],
+                "memory_limit": 256000  # 256MB in KB
+            }
 
-                # Create container with proper volume mounting
-                container = self.client.containers.run(
-                    image=config["image"],
-                    command=[config["command"], file_name],
-                    volumes={
-                        temp_dir: {"bind": "/code", "mode": "ro"}
-                    },
-                    working_dir="/code",
-                    detach=True,
-                    mem_limit=config["memory_limit"],
-                    network_disabled=True,
-                    cpu_period=100000,
-                    cpu_quota=25000,  # 25% CPU limit
-                    security_opt=['no-new-privileges'],
-                    read_only=True
+            # Create submission
+            response = requests.post(
+                f"{self.judge0_api_url}/submissions",
+                headers=self.headers,
+                json=submission_data
+            )
+            response.raise_for_status()
+            token = response.json()['token']
+
+            # Poll for results
+            max_attempts = 10
+            attempt = 0
+            while attempt < max_attempts:
+                response = requests.get(
+                    f"{self.judge0_api_url}/submissions/{token}",
+                    headers=self.headers
                 )
+                response.raise_for_status()
+                result = response.json()
 
-                try:
-                    # Run code with timeout
-                    result = container.wait(timeout=config["timeout"])
-                    output = container.logs().decode("utf-8")
+                if result['status']['id'] not in [1, 2]:  # Not queued or processing
+                    break
 
-                    return {
-                        "status": "success" if result["StatusCode"] == 0 else "error",
-                        "output": output,
-                        "error": None if result["StatusCode"] == 0 else output
-                    }
-                finally:
-                    # Ensure container cleanup
-                    try:
-                        container.remove(force=True)
-                    except Exception:
-                        pass
+                attempt += 1
+                time.sleep(1)
+
+            # Process results
+            status = result['status']['id']
+            if status == 3:  # Accepted
+                return {
+                    "status": "success",
+                    "output": result.get('stdout', ''),
+                    "error": None
+                }
+            elif status == 5:  # Time Limit Exceeded
+                return {
+                    "status": "error",
+                    "output": "",
+                    "error": f"Code execution timed out after {config['timeout']} seconds"
+                }
+            else:
+                return {
+                    "status": "error",
+                    "output": result.get('stdout', ''),
+                    "error": result.get('stderr', '') or result.get('compile_output', '')
+                }
 
         except Exception as e:
             return {

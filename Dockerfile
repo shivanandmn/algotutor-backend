@@ -1,14 +1,11 @@
 # Use Python 3.9 slim image
 FROM python:3.11-slim
 
-# Install system dependencies including Docker CLI
+# Install system dependencies
 RUN apt-get update && \
-    apt-get install -y docker.io curl ca-certificates && \
+    apt-get install -y curl && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Setup Docker permissions (handle case where group might already exist)
-    getent group docker || groupadd -r docker && \
-    usermod -aG docker root
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -26,9 +23,7 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PORT=8000
 
-# Setup Docker socket directory
-RUN mkdir -p /var/run && \
-    chmod 2375 /var/run
+
 
 # Expose the port
 EXPOSE 8000

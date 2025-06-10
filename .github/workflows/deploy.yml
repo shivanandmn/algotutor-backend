@@ -65,7 +65,7 @@ jobs:
           service: ${{ secrets.SERVICE }}
           region: ${{ secrets.REGION }}
           image: ${{ secrets.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/${{ secrets.SERVICE }}:${{ github.sha }}
-          flags: '--allow-unauthenticated --cpu=1 --memory=512Mi --min-instances=1 --max-instances=10 --port=8000 --timeout=300s'
+          flags: '--allow-unauthenticated --cpu=1 --memory=512Mi --min-instances=1 --max-instances=10 --port=8000 --timeout=300s --set-env-vars=JUDGE0_API_KEY=${{ secrets.JUDGE0_API_KEY }}'
 
       - name: Show Output
         run: echo ${{ steps.deploy.outputs.url }}

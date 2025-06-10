@@ -29,5 +29,8 @@ class Settings(BaseModel):
         "http://localhost:3000",  # React frontend
         "http://localhost:8000"   # FastAPI backend
     ]
+    
+    # Judge0 settings
+    JUDGE0_API_KEY: str = os.getenv("JUDGE0_API_KEY", "771827a322msh39a37aa37d0d1c3p17e72cjsnb2b513e2b510")
 
 settings = Settings()

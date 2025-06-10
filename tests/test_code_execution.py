@@ -3,7 +3,38 @@ from app.services.code_service import CodeExecutionService
 from app.schemas.question import Question, TestCase, CodeSnippet, Language
 
 @pytest.fixture
-def code_service():
+def code_service(monkeypatch):
+    # Mock Judge0 API responses
+    class MockResponse:
+        def __init__(self, json_data, status_code=200):
+            self.json_data = json_data
+            self.status_code = status_code
+        
+        def json(self):
+            return self.json_data
+        
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise Exception(f"HTTP {self.status_code}")
+    
+    def mock_post(*args, **kwargs):
+        return MockResponse({"token": "test-token"})
+    
+    def mock_get(*args, **kwargs):
+        if "test-token" in args[0]:
+            return MockResponse({
+                "status": {"id": 3},  # Accepted
+                "stdout": "[0,1]\n",
+                "stderr": "",
+                "compile_output": ""
+            })
+        return MockResponse({}, 404)
+    
+    # Apply mocks
+    import requests
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, "get", mock_get)
+    
     return CodeExecutionService()
 
 @pytest.fixture
