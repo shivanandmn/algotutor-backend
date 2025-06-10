@@ -33,37 +33,46 @@ class RateLimiter(BaseHTTPMiddleware):
             ]
 
     async def dispatch(self, request: Request, call_next):
-        client_id = self._get_client_identifier(request)
-        current_time = time.time()
+        try:
+            # Skip rate limiting for health check
+            if request.url.path == "/health":
+                return await call_next(request)
 
-        # Initialize client's request history
-        if client_id not in self.clients:
-            self.clients[client_id] = []
+            client_id = self._get_client_identifier(request)
+            current_time = time.time()
 
-        # Clean up old requests
-        self._cleanup_old_requests(client_id)
+            # Initialize client's request history
+            if client_id not in self.clients:
+                self.clients[client_id] = []
 
-        # Check burst limit
-        if len(self.clients[client_id]) >= self.burst_limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Burst rate limit exceeded"
-            )
+            # Clean up old requests
+            self._cleanup_old_requests(client_id)
 
-        # Check rate limit
-        requests_last_minute = len(self.clients[client_id])
-        if requests_last_minute >= self.requests_per_minute:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded"
-            )
+            # Check burst limit
+            if len(self.clients[client_id]) >= self.burst_limit:
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={"detail": "Burst rate limit exceeded"}
+                )
 
-        # Add current request
-        self.clients[client_id].append(current_time)
-        
-        # Call next middleware/route handler
-        response = await call_next(request)
-        return response
+            # Check rate limit
+            requests_last_minute = len(self.clients[client_id])
+            if requests_last_minute >= self.requests_per_minute:
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={"detail": "Rate limit exceeded"}
+                )
+
+            # Add current request
+            self.clients[client_id].append(current_time)
+            
+            # Call next middleware/route handler
+            response = await call_next(request)
+            return response
+        except Exception as e:
+            # Log the error but don't block the request
+            logging.error(f"Rate limiter error: {str(e)}")
+            return await call_next(request)
 
         # Add rate limit headers
         remaining = self.requests_per_minute - len(self.clients[client_id])

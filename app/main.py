@@ -42,9 +42,18 @@ app.add_middleware(RateLimiter, requests_per_minute=60, burst_limit=100)
 # Add request logging
 app.add_middleware(RequestLoggingMiddleware)
 
+# Register API routes
+app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+
 @app.on_event("startup")
 async def start_database():
-    await init_db()
+    try:
+        await init_db()
+        logging.info("Database initialized successfully")
+    except Exception as e:
+        logging.error(f"Failed to initialize database: {str(e)}")
+        # Don't raise the error - let the app start anyway
+        # Cloud Run will restart if the health check fails
 
 @app.get("/health")
 async def health_check():
