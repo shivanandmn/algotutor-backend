@@ -1,16 +1,17 @@
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 from fastapi import Request, HTTPException, status
+from starlette.middleware.base import BaseHTTPMiddleware
 import time
 
-class RateLimiter:
+class RateLimiter(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
         requests_per_minute: int = 60,
         burst_limit: int = 100
     ):
-        self.app = app
+        super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.burst_limit = burst_limit
         self.clients: Dict[str, list] = {}
@@ -31,7 +32,7 @@ class RateLimiter:
                 if current_time - req_time < 60
             ]
 
-    async def __call__(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next):
         client_id = self._get_client_identifier(request)
         current_time = time.time()
 
