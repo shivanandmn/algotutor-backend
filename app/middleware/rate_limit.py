@@ -1,8 +1,10 @@
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 from fastapi import Request, HTTPException, status
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
+import logging
 
 class RateLimiter(BaseHTTPMiddleware):
     def __init__(
@@ -68,15 +70,25 @@ class RateLimiter(BaseHTTPMiddleware):
             
             # Call next middleware/route handler
             response = await call_next(request)
+            
+            # Add rate limit headers
+            remaining = self.requests_per_minute - len(self.clients[client_id])
+            reset_time = datetime.fromtimestamp(current_time + 60)
+            
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+            response.headers["X-RateLimit-Reset"] = reset_time.isoformat()
+            
             return response
         except Exception as e:
             # Log the error but don't block the request
             logging.error(f"Rate limiter error: {str(e)}")
-            return await call_next(request)
-
-        # Add rate limit headers
-        remaining = self.requests_per_minute - len(self.clients[client_id])
-        reset_time = datetime.fromtimestamp(current_time + 60)
-
-        request.state.rate_limit_remaining = remaining
-        request.state.rate_limit_reset = reset_time.isoformat()
+            # Return a proper error response with rate limit headers
+            response = JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": "Internal server error", "message": str(e)}
+            )
+            remaining = self.requests_per_minute - len(self.clients[client_id])
+            reset_time = datetime.fromtimestamp(time.time() + 60)
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+            response.headers["X-RateLimit-Reset"] = reset_time.isoformat()
+            return response
