@@ -6,10 +6,11 @@ import time
 class RateLimiter:
     def __init__(
         self,
-        app = None,
+        app,
         requests_per_minute: int = 60,
         burst_limit: int = 100
     ):
+        self.app = app
         self.requests_per_minute = requests_per_minute
         self.burst_limit = burst_limit
         self.clients: Dict[str, list] = {}
@@ -30,7 +31,7 @@ class RateLimiter:
                 if current_time - req_time < 60
             ]
 
-    async def __call__(self, request: Request):
+    async def __call__(self, request: Request, call_next):
         client_id = self._get_client_identifier(request)
         current_time = time.time()
 
@@ -58,6 +59,10 @@ class RateLimiter:
 
         # Add current request
         self.clients[client_id].append(current_time)
+        
+        # Call next middleware/route handler
+        response = await call_next(request)
+        return response
 
         # Add rate limit headers
         remaining = self.requests_per_minute - len(self.clients[client_id])
