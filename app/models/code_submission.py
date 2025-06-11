@@ -2,14 +2,26 @@ from datetime import datetime
 from typing import List, Optional
 from beanie import Document, Link
 from pydantic import Field
-
+from pydantic.typing import Annotated
 from app.models.user import User
 from app.models.question import Question
 from app.models.test_result import TestResult
+from beanie import PydanticObjectId
 
 class CodeSubmission(Document):
-    user: Link[User]
-    question: Link[Question]
+
+    class Settings:
+        arbitrary_types_allowed = True
+        name = "code_submissions"
+        indexes = [
+            "user",
+            "question",
+            "status",
+            "submitted_at"
+        ]
+
+    user: Annotated[PydanticObjectId, Link[User]]
+    question: Annotated[PydanticObjectId, Link[Question]]
     language: str
     code: str
     status: str = Field(

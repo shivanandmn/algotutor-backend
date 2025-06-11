@@ -55,7 +55,7 @@ async def get_submission(
     """Get a submission by ID"""
     solution = await Solution.get(id)
     if not solution:
-        raise HTTPException(status_code=404, detail="Submission not found")
+        raise HTTPException(status_code=404, detail="Submission notfound")
     
     # Check if user owns submission
     if str(solution.user.id) != str(current_user.id):

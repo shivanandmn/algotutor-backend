@@ -1,13 +1,14 @@
-import os
 import time
 import requests
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from beanie import PydanticObjectId
+from beanie import PydanticObjectId, Link
 from fastapi import HTTPException
-
+import tempfile
 from app.core.config import settings
 from app.models.code_submission import CodeSubmission, TestResult
+from app.models.user import User
+from app.models.question import Question, TestCase
 
 class CodeExecutionService:
     def __init__(self):
@@ -141,9 +142,9 @@ class CodeExecutionService:
         """Execute a queued code submission"""
         submission = await CodeSubmission.get(PydanticObjectId(submission_id))
         if not submission:
-            raise HTTPException(status_code=404, detail="Submission not found")
+            raise HTTPException(status_code=404, detail="Su-bmission not found")
 
-        question = await Question.get(submission.question.id)
+        question = await Question.get(submission.question)
         if not question:
             raise HTTPException(status_code=404, detail="Question not found")
 
@@ -152,27 +153,24 @@ class CodeExecutionService:
         await submission.save()
 
         try:
-            # Create temporary directory for code files
-            with tempfile.TemporaryDirectory() as temp_dir:
-                results = await self._run_test_cases(
-                    submission.language,
-                    submission.code,
-                    question.test_cases,
-                    temp_dir
-                )
+            results = await self._run_test_cases(
+                language=submission.language,
+                code=submission.code,
+                test_cases=question.test_cases
+            )
 
-                # Update submission with results
-                submission.results = results
-                submission.total_tests = len(results)
-                submission.total_passed = sum(1 for r in results if r.passed)
-                submission.status = "completed"
-                submission.completed_at = datetime.utcnow()
-                
-                # Calculate total execution time and peak memory
-                submission.execution_time = sum(r.execution_time for r in results)
-                submission.memory_used = max(r.memory_used for r in results)
-                
-                await submission.save()
+            # Update submission with results
+            submission.status = "completed"
+            submission.completed_at = datetime.utcnow()
+            submission.results = results
+            submission.total_tests = len(results)
+            submission.total_passed = sum(1 for r in results if r.passed)
+            
+            # Calculate total execution time and peak memory
+            submission.execution_time = sum(r.execution_time for r in results)
+            submission.memory_used = max(r.memory_used for r in results)
+            
+            await submission.save()
 
         except Exception as e:
             submission.status = "error"
@@ -184,133 +182,76 @@ class CodeExecutionService:
         self,
         language: str,
         code: str,
-        test_cases: List[dict],
-        temp_dir: str
+        test_cases: List[TestCase]
     ) -> List[TestResult]:
-        """Run test cases with compilation support for compiled languages"""
+        """Run test cases using Judge0 API"""
         config = self.language_configs[language]
         results = []
-
-        # Create source file
-        source_file = os.path.join(temp_dir, f"main{config['extension']}")
-        with open(source_file, "w") as f:
-            f.write(code)
-
-        # Compile if needed
-        if config.get('compile_needed', False):
-            try:
-                compile_cmd = [config['compile_command'], f"main{config['extension']}"] + config.get('compile_args', [])
-                container = self.client.containers.create(
-                    image=config['image'],
-                    command=compile_cmd,
-                    volumes={temp_dir: {'bind': '/code', 'mode': 'rw'}},
-                    working_dir='/code',
-                    network_disabled=True
-                )
-                container.start()
-                result = container.wait(timeout=30)  # 30 seconds compile timeout
-                
-                if result['StatusCode'] != 0:
-                    compile_error = container.logs(stderr=True).decode()
-                    container.remove(force=True)
-                    return [TestResult(
-                        test_case_id='compile',
-                        passed=False,
-                        execution_time=0,
-                        memory_used=0,
-                        error=f"Compilation error:\n{compile_error}"
-                    )]
-                container.remove(force=True)
-            except Exception as e:
-                return [TestResult(
-                    test_case_id='compile',
-                    passed=False,
-                    execution_time=0,
-                    memory_used=0,
-                    error=f"Compilation failed: {str(e)}"
-                )]
-
-        """Run code against test cases in Docker container"""
-        config = self.language_configs[language]
-        results = []
-
-        # Create source file
-        source_file = os.path.join(temp_dir, f"main{config['extension']}")
-        with open(source_file, "w") as f:
-            f.write(code)
 
         for test_case in test_cases:
             try:
-                # Create container
-                container = self.client.containers.create(
-                    image=config["image"],
-                    command=self._get_run_command(language, "main", test_case["input"]),
-                    volumes={
-                        temp_dir: {
-                            "bind": "/code",
-                            "mode": "rw"
-                        }
-                    },
-                    working_dir="/code",
-                    mem_limit=config["memory_limit"],
-                    network_disabled=True,
-                    cpu_period=100000,
-                    cpu_quota=25000  # 25% CPU limit
+                # Prepare submission data
+                data = {
+                    "source_code": code,
+                    "language_id": config["judge0_id"],
+                    "stdin": test_case.input,
+                    "expected_output": test_case.expected_output,
+                    "cpu_time_limit": 2,  # 2 seconds
+                    "memory_limit": 256000  # 256MB
+                }
+
+                # Create submission
+                response = requests.post(
+                    f"{self.judge0_api_url}/submissions",
+                    headers=self.headers,
+                    json=data
                 )
+                response.raise_for_status()
+                token = response.json()["token"]
 
-                start_time = datetime.now()
-                container.start()
+                # Wait for result (poll every 0.5 seconds)
+                while True:
+                    response = requests.get(
+                        f"{self.judge0_api_url}/submissions/{token}",
+                        headers=self.headers
+                    )
+                    response.raise_for_status()
+                    submission = response.json()
 
-                try:
-                    container.wait(timeout=config["timeout"])
-                    execution_time = (datetime.now() - start_time).total_seconds() * 1000
-                    
-                    # Get output and memory usage
-                    output = container.logs().decode().strip()
-                    stats = container.stats(stream=False)
-                    memory_used = stats["memory_stats"]["usage"] / (1024 * 1024)  # Convert to MB
+                    if submission["status"]["id"] not in [1, 2]:  # Not queued or processing
+                        break
+                    time.sleep(0.5)
 
-                    # Compare with expected output
-                    passed = output.strip() == test_case["expected_output"].strip()
+                # Process result
+                status = submission["status"]
+                passed = status["id"] == 3  # Accepted
+                error = None if passed else f"{status['description']}: {submission.get('compile_output', '')}"
 
-                    results.append(TestResult(
-                        test_case_id=str(test_case["id"]),
-                        passed=passed,
-                        execution_time=execution_time,
-                        memory_used=memory_used,
-                        output=output if not test_case["is_hidden"] else None,
-                        is_hidden=test_case["is_hidden"]
-                    ))
-
-                except Exception as e:
-                    results.append(TestResult(
-                        test_case_id=str(test_case["id"]),
-                        passed=False,
-                        execution_time=0,
-                        memory_used=0,
-                        error=str(e),
-                        is_hidden=test_case["is_hidden"]
-                    ))
-
-                finally:
-                    try:
-                        container.remove(force=True)
-                    except:
-                        pass
+                # Generate test case ID if not present
+                test_case_id = getattr(test_case, 'id', None) or str(PydanticObjectId())
+                results.append(TestResult(
+                    test_case_id=str(test_case_id),
+                    passed=passed,
+                    execution_time=float(submission.get("time", 0)),
+                    memory_used=float(submission.get("memory", 0)) / 1024,  # Convert KB to MB
+                    output=None if test_case.is_hidden else submission.get("stdout", ""),
+                    error=error,
+                    is_hidden=test_case.is_hidden
+                ))
 
             except Exception as e:
+                test_case_id = getattr(test_case, 'id', None) or str(PydanticObjectId())
                 results.append(TestResult(
-                    test_case_id=str(test_case["id"]),
+                    test_case_id=str(test_case_id),
                     passed=False,
                     execution_time=0,
                     memory_used=0,
-                    error=f"Container error: {str(e)}",
-                    is_hidden=test_case["is_hidden"]
+                    error=f"Judge0 API error: {str(e)}",
+                    is_hidden=test_case.is_hidden
                 ))
 
         return results
 
-    def _get_run_command(self, language: str, filename: str, input_data: str) -> List[str]:
         """Get the appropriate run command for the language"""
         if language == "python":
             return ["python", f"{filename}.py"]
@@ -336,4 +277,13 @@ class CodeExecutionService:
         if question_id:
             query["question"] = PydanticObjectId(question_id)
         
+        return await CodeSubmission.find(query).limit(limit).to_list()
+
+    async def get_question_submissions(
+        self,
+        question_id: str,
+        limit: int = 50
+    ) -> List[CodeSubmission]:
+        """Get all submissions for a specific question"""
+        query = {"question": PydanticObjectId(question_id)}
         return await CodeSubmission.find(query).limit(limit).to_list()

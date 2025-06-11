@@ -14,7 +14,7 @@ class AuthService:
         self.google_client_id = settings.GOOGLE_CLIENT_ID
         self.secret_key = settings.JWT_SECRET_KEY
         self.algorithm = settings.JWT_ALGORITHM
-        self.access_token_expire_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        self.access_token_expire_minutes = settings.ACCESS_TOKEN_EXPIRY_MINUTES
 
     async def verify_google_token(self, token: str) -> Dict[str, Any]:
         try:

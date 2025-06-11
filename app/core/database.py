@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.models.question import Question
 from app.models.code_submission import CodeSubmission
+from app.models.test_result import TestResult
 
 async def init_db():
     """Initialize database connection"""
@@ -17,5 +18,6 @@ async def init_db():
             User,
             Question,
             CodeSubmission,
+            TestResult,
         ]
     )

@@ -1,13 +1,17 @@
 from datetime import datetime
 from typing import List, Optional
-from beanie import Document, Link
+from beanie import Document, Link, PydanticObjectId
 from pydantic import Field
 
 from app.models.user import User
-from app.schemas.question import QuestionBase
+from app.schemas.question import QuestionBase, TestCase
 
 class Question(QuestionBase, Document):
-    created_by: Link[User]
+    # Convert test_cases to have proper string types
+    test_cases: List[TestCase] = Field(default_factory=list)
+    
+    # Handle created_by as PydanticObjectId
+    created_by: PydanticObjectId
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -18,5 +22,6 @@ class Question(QuestionBase, Document):
     class Config:
         populate_by_name = True
         json_encoders = {
-            datetime: lambda v: v.isoformat()
+            datetime: lambda v: v.isoformat(),
+            PydanticObjectId: str
         }

@@ -12,3 +12,6 @@ class BaseTestResult(BaseModel):
 
 class TestResult(BaseTestResult, Document):
     is_hidden: bool = False
+
+    class Settings:
+        name = "test_results"

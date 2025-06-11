@@ -2,6 +2,7 @@ from typing import List, Optional, Dict
 from datetime import datetime
 from pydantic import BaseModel, Field, constr
 from enum import Enum
+from beanie import PydanticObjectId
 
 class Language(str, Enum):
     PYTHON = "python"
@@ -10,6 +11,7 @@ class Language(str, Enum):
     JAVASCRIPT = "javascript"
 
 class TestCase(BaseModel):
+    id: str = Field(default_factory=lambda: str(PydanticObjectId()))
     input: str
     expected_output: str
     timeout_ms: int = 2000

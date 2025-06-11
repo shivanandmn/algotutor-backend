@@ -1,10 +1,10 @@
 from typing import Optional
 from beanie import Document
-from pydantic import EmailStr, Field
+from pydantic import Field
 from datetime import datetime
 
 class User(Document):
-    email: EmailStr
+    email: str
     name: str
     role: str = Field(default="user")
     google_id: str = Field(unique=True)

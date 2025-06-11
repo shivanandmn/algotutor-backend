@@ -1,4 +1,5 @@
 from typing import Optional
+from beanie import PydanticObjectId
 from app.models.user import User
 
 class DevAuthMiddleware:
@@ -7,11 +8,11 @@ class DevAuthMiddleware:
     async def get_current_user(self, token: Optional[str] = None) -> User:
         """Returns a mock admin user for development"""
         return User(
-            id="dev_user_id",
+            id=PydanticObjectId("000000000000000000000000"),  # Default ObjectId
             email="dev@example.com",
-            username="dev_user",
+            name="Dev User",
             role="admin",
-            is_active=True
+            google_id="dev_google_id"
         )
 
 dev_auth_service = DevAuthMiddleware()

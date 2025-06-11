@@ -20,17 +20,17 @@ async def create_question(
         raise HTTPException(status_code=403, detail="Not authorized")
     
     # Create slug from title
-    title_slug = "-".join(question.title.lower().split())
+    title_slug = "_".join(question.title.lower().split())
     
     # Check if slug exists
-    existing = await Question.find_one({"title-slug": title_slug})
+    existing = await Question.find_one({"title_slug": title_slug})
     if existing:
         raise HTTPException(status_code=400, detail="Question with this title already exists")
     
     db_question = Question(
         **question.dict(),
         title_slug=title_slug,
-        created_by=str(current_user.id),
+        created_by=current_user.id,  # This is already a PydanticObjectId
         likes=0,
         dislikes=0
     )
@@ -61,7 +61,7 @@ async def list_questions(
 @router.get("/{slug}", response_model=Question)
 async def get_question(slug: str = Path(..., title="Question slug")):
     """Get a question by slug"""
-    question = await Question.find_one({"title-slug": slug})
+    question = await Question.find_one({"title_slug": slug})
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     return question

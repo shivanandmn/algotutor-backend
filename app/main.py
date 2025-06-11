@@ -3,11 +3,8 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import router as api_v1_router
 from app.core.config import settings
-from app.middleware.cors import setup_cors
-from app.middleware.security import setup_security
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.rate_limit import RateLimiter
-from app.middleware.error_handler import get_error_handler
 from app.core.database import init_db
 import logging
 
