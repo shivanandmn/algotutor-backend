@@ -10,7 +10,7 @@ from app.middleware.mock_auth import mock_auth_service as auth_service
 router = APIRouter()
 auth_service = auth_service
 
-@router.post("/", response_model=Question)
+@router.post("", response_model=Question)
 async def create_question(
     question: QuestionCreate,
     current_user: User = Depends(auth_service.get_current_user)
@@ -37,7 +37,7 @@ async def create_question(
     await db_question.insert()
     return db_question
 
-@router.get("/", response_model=List[Question])
+@router.get("", response_model=List[Question])
 async def list_questions(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
