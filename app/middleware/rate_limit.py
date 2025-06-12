@@ -35,15 +35,18 @@ class RateLimiter(BaseHTTPMiddleware):
             ]
 
     async def dispatch(self, request: Request, call_next):
+        client_id = None
+        current_time = None
+        
         try:
-            # Skip rate limiting for health check
-            if request.url.path == "/health":
+            # Skip rate limiting for health check and OPTIONS requests
+            if request.url.path == "/health" or request.method == "OPTIONS":
                 return await call_next(request)
 
             client_id = self._get_client_identifier(request)
             current_time = time.time()
 
-            # Initialize client's request history
+            # Initialize client's request history if needed
             if client_id not in self.clients:
                 self.clients[client_id] = []
 
@@ -52,18 +55,22 @@ class RateLimiter(BaseHTTPMiddleware):
 
             # Check burst limit
             if len(self.clients[client_id]) >= self.burst_limit:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     content={"detail": "Burst rate limit exceeded"}
                 )
+                self._add_rate_limit_headers(response, client_id, current_time)
+                return response
 
             # Check rate limit
             requests_last_minute = len(self.clients[client_id])
             if requests_last_minute >= self.requests_per_minute:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     content={"detail": "Rate limit exceeded"}
                 )
+                self._add_rate_limit_headers(response, client_id, current_time)
+                return response
 
             # Add current request
             self.clients[client_id].append(current_time)
@@ -71,24 +78,34 @@ class RateLimiter(BaseHTTPMiddleware):
             # Call next middleware/route handler
             response = await call_next(request)
             
-            # Add rate limit headers
-            remaining = self.requests_per_minute - len(self.clients[client_id])
-            reset_time = datetime.fromtimestamp(current_time + 60)
-            
-            response.headers["X-RateLimit-Remaining"] = str(remaining)
-            response.headers["X-RateLimit-Reset"] = reset_time.isoformat()
-            
+            # Add rate limit headers to successful response
+            self._add_rate_limit_headers(response, client_id, current_time)
             return response
+            
         except Exception as e:
-            # Log the error but don't block the request
             logging.error(f"Rate limiter error: {str(e)}")
-            # Return a proper error response with rate limit headers
             response = JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"detail": "Internal server error", "message": str(e)}
+                content={"detail": "Internal server error"}
             )
-            remaining = self.requests_per_minute - len(self.clients[client_id])
-            reset_time = datetime.fromtimestamp(time.time() + 60)
+            
+            # Only add rate limit headers if we have the necessary info
+            if client_id and current_time:
+                try:
+                    self._add_rate_limit_headers(response, client_id, current_time)
+                except Exception as header_error:
+                    logging.error(f"Failed to add rate limit headers: {str(header_error)}")
+                    
+            return response
+
+    def _add_rate_limit_headers(self, response, client_id: str, current_time: float):
+        """Helper method to add rate limit headers to a response"""
+        try:
+            remaining = max(0, self.requests_per_minute - len(self.clients.get(client_id, [])))
+            reset_time = datetime.fromtimestamp(current_time + 60)
+            
+            response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
             response.headers["X-RateLimit-Remaining"] = str(remaining)
             response.headers["X-RateLimit-Reset"] = reset_time.isoformat()
-            return response
+        except Exception as e:
+            logging.error(f"Error adding rate limit headers: {str(e)}")
