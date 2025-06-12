@@ -1,6 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from beanie import PydanticObjectId
+import logging
 
 from app.models.user import User
 from app.models.question import Question
@@ -9,6 +10,7 @@ from app.middleware.mock_auth import mock_auth_service as auth_service
 
 router = APIRouter()
 auth_service = auth_service
+logger = logging.getLogger(__name__)
 
 @router.post("", response_model=Question)
 async def create_question(
@@ -46,20 +48,27 @@ async def list_questions(
     companies: Optional[List[str]] = Query(None)
 ):
     """List questions with filters"""
-    query = {}
-    
-    if difficulty:
-        query["level"] = difficulty
-    if topics:
-        query["topics"] = {"$all": topics}
-    if companies:
-        query["companies"] = {"$all": companies}
+    try:
+        logger.info(f"Listing questions with filters: difficulty={difficulty}, topics={topics}, companies={companies}")
+        query = {}
         
-    questions = await Question.find(query).skip(skip).limit(limit).to_list()
-    return questions
+        if difficulty:
+            query["level"] = difficulty
+        if topics:
+            query["topics"] = {"$all": topics}
+        if companies:
+            query["companies"] = {"$all": companies}
+            
+        logger.debug(f"MongoDB query: {query}")
+        questions = await Question.find(query).skip(skip).limit(limit).to_list()
+        logger.info(f"Found {len(questions)} questions")
+        return questions
+    except Exception as e:
+        logger.error(f"Error listing questions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.get("/{slug}", response_model=Question)
-async def get_question(slug: str = Path(..., title="Question slug")):
+@router.get("/by-slug/{slug}", response_model=Question)
+async def get_question_by_slug(slug: str = Path(..., title="Question slug")):
     """Get a question by slug"""
     question = await Question.find_one({"title_slug": slug})
     if not question:
