@@ -11,7 +11,7 @@ from app.schemas.code import (
 )
 from app.models.code_submission import CodeSubmission
 from app.services.code_service import CodeExecutionService
-from app.middleware.dev_auth import dev_auth_service
+from app.middleware.mock_auth import mock_auth_service as dev_auth_service
 from beanie import PydanticObjectId
 
 router = APIRouter()

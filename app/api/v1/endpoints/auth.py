@@ -5,11 +5,10 @@ import httpx
 
 from app.models.user import User
 from app.schemas.auth import TokenSchema, UserUpdate, UserList
-from app.services.auth_service import AuthService
+from app.middleware.mock_auth import mock_auth_service as auth_service
 from app.middleware.auth_middleware import JWTBearer
 
 router = APIRouter()
-auth_service = AuthService()
 
 @router.post("/login/google", response_model=TokenSchema)
 async def google_login(token: Dict[str, str]):

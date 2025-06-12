@@ -5,10 +5,10 @@ from beanie import PydanticObjectId
 from app.models.user import User
 from app.models.question import Question
 from app.schemas.question import QuestionCreate, QuestionUpdate
-from app.services.auth_service import AuthService
+from app.middleware.mock_auth import mock_auth_service as auth_service
 
 router = APIRouter()
-auth_service = AuthService()
+auth_service = auth_service
 
 @router.post("/", response_model=Question)
 async def create_question(

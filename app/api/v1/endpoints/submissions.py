@@ -6,7 +6,7 @@ from app.models.user import User
 from app.models.question import Question
 from app.models.solution import Solution
 from app.schemas.solution import SolutionCreate, Solution as SolutionSchema
-from app.services.auth_service import AuthService
+from app.middleware.mock_auth import mock_auth_service as auth_service
 from app.services.code_service import CodeExecutionService
 
 router = APIRouter()
