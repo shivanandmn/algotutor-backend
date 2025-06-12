@@ -26,12 +26,11 @@ class Settings(BaseModel):
     
     # CORS settings
     CORS_ORIGINS: List[str] = [
-        # "http://localhost:3000",  # React frontend development
-        # "https://localhost:3000",  # React frontend development (HTTPS)
-        # "http://localhost:8000",  # FastAPI backend development
-        # "https://algotutor.vercel.app",  # Production frontend
-        # "http://algotutor.vercel.app",  # Production frontend (HTTP)
-        "*"  # Allow all origins during development (REMOVE IN PRODUCTION)
+        "http://localhost:3000",  # React frontend development
+        "https://localhost:3000",  # React frontend development (HTTPS)
+        "http://localhost:8000",  # FastAPI backend development
+        "https://algotutor.vercel.app",  # Production frontend
+        "http://algotutor.vercel.app",  # Production frontend (HTTP)
     ]
     
     # Judge0 settings
