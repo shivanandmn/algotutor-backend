@@ -59,12 +59,14 @@ async def list_questions(
         if companies:
             query["companies"] = {"$all": companies}
             
-        logger.debug(f"MongoDB query: {query}")
+        logger.info(f"MongoDB query: {query}")
         questions = await Question.find(query).skip(skip).limit(limit).to_list()
         logger.info(f"Found {len(questions)} questions")
         return questions
     except Exception as e:
-        logger.error(f"Error listing questions: {str(e)}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error listing questions: {str(e)}\nTraceback: {error_details}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/by-slug/{slug}", response_model=Question)
